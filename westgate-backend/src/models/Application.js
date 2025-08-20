@@ -19,7 +19,10 @@ const applicationSchema = new mongoose.Schema({
     required: [true, 'Date of birth is required'],
     validate: {
       validator: function(date) {
-        return date < new Date();
+        // Compare only the date part, not time
+        const today = new Date();
+        today.setHours(23, 59, 59, 999); // End of today
+        return new Date(date) <= today;
       },
       message: 'Date of birth must be in the past'
     }
@@ -63,7 +66,7 @@ const applicationSchema = new mongoose.Schema({
   relationship: {
     type: String,
     default: 'parent',
-    enum: ['parent', 'guardian', 'relative'],
+    enum: ['parent', 'guardian', 'relative', 'aunt', 'uncle', 'grandparent', 'other'],
     trim: true
   },
   email: {
