@@ -4,6 +4,7 @@ const Contact = require('../models/Contact');
 const { validateContact } = require('../middleware/validation');
 const rateLimit = require('express-rate-limit');
 const { sendContactNotification, sendContactConfirmation } = require('../utils/email');
+const { verifyToken, requireRole } = require('../middleware/auth');
 
 // Rate limiting for contact form submissions
 const contactLimiter = rateLimit({
@@ -191,6 +192,191 @@ router.post('/tour', contactLimiter, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to book tour. Please try again later.'
+    });
+  }
+});
+
+// Admin endpoints
+
+// @route   GET /api/contact/admin
+// @desc    Get all contact submissions (admin only)
+// @access  Private (Admin)
+router.get('/admin', verifyToken, async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      inquiryType,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build filter object
+    const filter = {};
+    
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+    
+    if (inquiryType && inquiryType !== 'all') {
+      filter.inquiryType = inquiryType;
+    }
+    
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { message: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Build sort object
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query
+    const [contacts, total] = await Promise.all([
+      Contact.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Contact.countDocuments(filter)
+    ]);
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / parseInt(limit));
+    const hasNext = page < totalPages;
+    const hasPrev = page > 1;
+
+    res.json({
+      success: true,
+      message: 'Contact submissions retrieved successfully',
+      data: {
+        contacts,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalItems: total,
+          itemsPerPage: parseInt(limit),
+          hasNext,
+          hasPrev
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Contact retrieval error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve contact submissions',
+      code: 'CONTACT_RETRIEVAL_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/contact/admin/stats
+// @desc    Get contact submission statistics (admin only)
+// @access  Private (Admin)
+router.get('/admin/stats', verifyToken, async (req, res) => {
+  try {
+    const stats = await Contact.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          new: { $sum: { $cond: [{ $eq: ['$status', 'new'] }, 1, 0] } },
+          contacted: { $sum: { $cond: [{ $eq: ['$status', 'contacted'] }, 1, 0] } },
+          followUp: { $sum: { $cond: [{ $eq: ['$status', 'follow-up'] }, 1, 0] } },
+          resolved: { $sum: { $cond: [{ $eq: ['$status', 'resolved'] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    const inquiryTypeStats = await Contact.aggregate([
+      {
+        $group: {
+          _id: '$inquiryType',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const overview = stats[0] || {
+      total: 0,
+      new: 0,
+      contacted: 0,
+      followUp: 0,
+      resolved: 0
+    };
+
+    res.json({
+      success: true,
+      message: 'Contact statistics retrieved successfully',
+      data: {
+        overview,
+        inquiryTypes: inquiryTypeStats
+      }
+    });
+
+  } catch (error) {
+    console.error('Contact stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve contact statistics',
+      code: 'CONTACT_STATS_ERROR'
+    });
+  }
+});
+
+// @route   PUT /api/contact/admin/:id
+// @desc    Update contact submission status/notes (admin only)
+// @access  Private (Admin)
+router.put('/admin/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes, assignedTo } = req.body;
+
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (notes !== undefined) updateData.notes = notes;
+    if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+    
+    if (status === 'contacted') {
+      updateData.responseDate = new Date();
+    }
+
+    const contact = await Contact.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contact submission not found',
+        code: 'CONTACT_NOT_FOUND'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Contact submission updated successfully',
+      data: { contact }
+    });
+
+  } catch (error) {
+    console.error('Contact update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update contact submission',
+      code: 'CONTACT_UPDATE_ERROR'
     });
   }
 });
