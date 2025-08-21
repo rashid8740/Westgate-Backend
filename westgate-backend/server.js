@@ -59,14 +59,23 @@ const corsOptions = {
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+    // Allow any *.vercel.app preview for this project
+    let isVercelPreview = false;
+    try {
+      const hostname = new URL(origin).hostname;
+      isVercelPreview = hostname.endsWith('.vercel.app');
+    } catch {}
+
+    if (allowedOrigins.includes(origin) || isVercelPreview || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 app.use(cors(corsOptions));
