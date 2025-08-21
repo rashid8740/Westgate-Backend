@@ -50,7 +50,11 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:3001',
       'https://westgateschool.ac.ke',
-      'https://www.westgateschool.ac.ke'
+      'https://www.westgateschool.ac.ke',
+      // Vercel domains - add your actual Vercel app URL here
+      'https://westgate-frontend.vercel.app',
+      'https://westgate-frontend-git-main-rashid8740s-projects.vercel.app',
+      'https://westgate-frontend-rashid8740s-projects.vercel.app'
     ];
     
     // Allow requests with no origin (mobile apps, etc.)
