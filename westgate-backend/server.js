@@ -51,10 +51,9 @@ const corsOptions = {
       'http://localhost:3001',
       'https://westgateschool.ac.ke',
       'https://www.westgateschool.ac.ke',
-      // Vercel domains - add your actual Vercel app URL here
-      'https://westgate-frontend.vercel.app',
-      'https://westgate-frontend-git-main-rashid8740s-projects.vercel.app',
-      'https://westgate-frontend-rashid8740s-projects.vercel.app'
+      // Vercel frontend domains
+      'https://westgate-group-of-schools.vercel.app',
+      'https://westgate-group-of-schools-git-main-rashid8740.vercel.app'
     ];
     
     // Allow requests with no origin (mobile apps, etc.)
@@ -71,6 +70,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+// Ensure preflight requests are handled without redirect
+app.options('*', cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
