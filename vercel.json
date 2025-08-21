@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd westgate-frontend && npm run build",
+  "outputDirectory": "westgate-frontend/.next",
+  "installCommand": "cd westgate-frontend && npm install",
+  "devCommand": "cd westgate-frontend && npm run dev",
+  "framework": "nextjs"
+}
