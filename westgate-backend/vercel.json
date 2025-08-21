@@ -9,6 +9,7 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/server.js" },
+    { "src": "/", "dest": "/server.js" },
     { "src": "/(.*)", "status": 404 }
   ],
   "installCommand": "npm install",

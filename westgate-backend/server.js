@@ -106,6 +106,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Root endpoint (useful for platform uptime checks)
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Westgate School Backend (API only). Use /api/* endpoints. Try /api/health.',
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
