@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "name": "westgate-backend-api",
   "builds": [
     {
       "src": "server.js",
@@ -11,5 +12,9 @@
       "src": "/(.*)",
       "dest": "/server.js"
     }
-  ]
+  ],
+  "installCommand": "npm install",
+  "buildCommand": "echo 'No build step required for Node.js server'",
+  "outputDirectory": ".",
+  "framework": null
 }
