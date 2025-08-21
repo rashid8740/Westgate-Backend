@@ -35,6 +35,14 @@ const gallerySchema = new mongoose.Schema({
     required: [true, 'Secure URL is required']
   },
   
+  // Different sized URLs for responsive images
+  urls: {
+    thumbnail: { type: String },
+    medium: { type: String },
+    large: { type: String },
+    original: { type: String }
+  },
+  
   // Image Details
   width: {
     type: Number,

@@ -1,19 +1,12 @@
 const express = require('express');
 const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
 const rateLimit = require('express-rate-limit');
 const { body, param, query, validationResult } = require('express-validator');
 const Gallery = require('../models/Gallery');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { uploadImageWithSizes, deleteImage, generateImageUrls } = require('../config/cloudinary');
 
 const router = express.Router();
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -32,10 +25,10 @@ const upload = multer({
   }
 });
 
-// Rate limiting for uploads
+// Rate limiting for uploads (more generous for development)
 const uploadLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20, // limit each admin to 20 uploads per hour
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each admin to 100 uploads per 15 minutes
   message: {
     success: false,
     message: 'Too many uploads, please try again later.',
@@ -69,8 +62,18 @@ const createImageValidation = [
     .withMessage('Invalid category'),
   body('tags')
     .optional()
-    .isArray()
-    .withMessage('Tags must be an array'),
+    .custom((value) => {
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed);
+        } catch (e) {
+          return false;
+        }
+      }
+      return Array.isArray(value);
+    })
+    .withMessage('Tags must be an array or valid JSON array string'),
   body('eventDate')
     .optional()
     .isISO8601()
@@ -83,8 +86,15 @@ const createImageValidation = [
     .withMessage('Location cannot exceed 100 characters'),
   body('isFeatured')
     .optional()
-    .isBoolean()
-    .withMessage('Featured status must be a boolean')
+    .custom((value) => {
+      if (value === undefined || value === null || value === '') return true;
+      if (typeof value === 'boolean') return true;
+      if (typeof value === 'string') {
+        return value === 'true' || value === 'false';
+      }
+      return false;
+    })
+    .withMessage('Featured status must be a boolean or boolean string')
 ];
 
 const updateImageValidation = [
@@ -115,25 +125,28 @@ router.post('/', verifyToken, uploadLimiter, upload.single('image'), createImage
       });
     }
 
-    // Upload to Cloudinary
-    const uploadPromise = new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'westgate-gallery',
-          transformation: [
-            { quality: 'auto' },
-            { fetch_format: 'auto' }
-          ]
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      uploadStream.end(req.file.buffer);
+    // Upload to Cloudinary with different sizes
+    const cloudinaryResult = await uploadImageWithSizes(req.file.buffer, {
+      folder: `westgate-gallery/${req.body.category}`,
+      public_id: `${Date.now()}-${req.body.title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`
     });
 
-    const cloudinaryResult = await uploadPromise;
+    // Generate different sized URLs
+    const imageUrls = generateImageUrls(cloudinaryResult.public_id);
+
+    // Parse tags if it's a JSON string
+    let tags = [];
+    if (req.body.tags) {
+      if (typeof req.body.tags === 'string') {
+        try {
+          tags = JSON.parse(req.body.tags);
+        } catch (e) {
+          tags = [];
+        }
+      } else if (Array.isArray(req.body.tags)) {
+        tags = req.body.tags;
+      }
+    }
 
     // Create gallery entry
     const galleryImage = new Gallery({
@@ -143,15 +156,16 @@ router.post('/', verifyToken, uploadLimiter, upload.single('image'), createImage
       cloudinaryId: cloudinaryResult.public_id,
       url: cloudinaryResult.url,
       secureUrl: cloudinaryResult.secure_url,
+      urls: imageUrls,
       width: cloudinaryResult.width,
       height: cloudinaryResult.height,
       format: cloudinaryResult.format,
       size: cloudinaryResult.bytes,
       category: req.body.category,
-      tags: req.body.tags || [],
+      tags: tags,
       eventDate: req.body.eventDate,
       location: req.body.location,
-      isFeatured: req.body.isFeatured || false,
+      isFeatured: req.body.isFeatured === 'true' || req.body.isFeatured === true,
       uploadedBy: req.admin._id,
       uploadSource: 'admin_panel'
     });
