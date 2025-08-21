@@ -114,14 +114,8 @@ app.use('/api/gallery', galleryRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 
-// Serve static files in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../westgate-frontend/out')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../westgate-frontend/out/index.html'));
-  });
-}
+// Do NOT serve frontend from backend on serverless (Vercel)
+// The frontend is deployed separately. Only API routes are handled here.
 
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
