@@ -41,7 +41,7 @@ const applicationSchema = new mongoose.Schema({
   program: {
     type: String,
     required: [true, 'Program is required'],
-    enum: ['early-years', 'primary', 'secondary']
+    enum: ['playgroup', 'nursery', 'pre-primary', 'primary']
   },
   currentGrade: {
     type: String,

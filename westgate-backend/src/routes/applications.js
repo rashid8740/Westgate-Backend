@@ -41,8 +41,8 @@ const createApplicationValidation = [
     .isLength({ min: 2, max: 50 })
     .withMessage('Nationality must be between 2 and 50 characters'),
   body('program')
-    .isIn(['early-years', 'primary', 'secondary'])
-    .withMessage('Program must be early-years, primary, or secondary'),
+    .isIn(['playgroup', 'nursery', 'pre-primary', 'primary'])
+    .withMessage('Program must be playgroup, nursery, pre-primary, or primary'),
   body('currentGrade')
     .trim()
     .isLength({ min: 1, max: 20 })
